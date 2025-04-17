@@ -72,10 +72,10 @@ def save_simulation(simulation_results, name=None, description=None):
         dangers=simulation_results.get('dangers', 0),
         goals=simulation_results.get('goals', 0),
         steps=len(log_df),
-        agent_a_start_x=agent_a.start_x,
-        agent_a_start_y=agent_a.start_y,
-        agent_b_start_x=agent_b.start_x,
-        agent_b_start_y=agent_b.start_y,
+        agent_a_start_x=agent_a.x,  # Corrected from start_x to x
+        agent_a_start_y=agent_a.y,  # Corrected from start_y to y
+        agent_b_start_x=agent_b.x,  # Corrected from start_x to x
+        agent_b_start_y=agent_b.y,  # Corrected from start_y to y
         relationship_score=relationship_score,
         avg_resonance=avg_resonance,
         avg_bond_strength_a=avg_bond_strength_a,
