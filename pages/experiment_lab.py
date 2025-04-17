@@ -242,6 +242,12 @@ if st.session_state.experiment_stage == "design":
     
     if experiment_tab == "Experiment Setup":
         st.header("1. Experiment Setup")
+        
+        # Load saved experiment button
+        if st.button("Load Saved Experiment"):
+            st.info("Navigate to the 'Saved Experiments' page to load or view your saved experiments.")
+            st.write("You can find this page in the sidebar menu.")
+        
         st.subheader("Basic Information")
         
         experiment_name = st.text_input(
@@ -1404,27 +1410,44 @@ elif st.session_state.experiment_stage == "analysis":
         else:
             st.info("No combined data available for export.")
         
-        # Option to start a new experiment
+        # Database operations
         st.markdown("---")
-        if st.button("Start New Experiment", type="primary"):
-            # Reset experiment state
-            st.session_state.experiment_stage = "design"
-            st.session_state.experiment_design = {
-                "experiment_id": str(uuid.uuid4()),
-                "name": f"Experiment {datetime.now().strftime('%Y%m%d-%H%M%S')}",
-                "description": "",
-                "hypothesis": "",
-                "independent_variable": {},
-                "control_group": {},
-                "experimental_groups": [],
-                "dependent_variables": [],
-                "replications": 5,
-                "randomization": True
-            }
-            st.session_state.experiment_results = {
-                "control_data": None,
-                "experimental_data": [],
-                "summary": None,
-                "statistical_tests": None
-            }
-            st.rerun()
+        st.subheader("Database Operations")
+        
+        # Save experiment to database
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Save Experiment to Database"):
+                try:
+                    # Prepare the data
+                    experiment_data = st.session_state.experiment_design.copy()
+                    experiment_data["control_results"] = results["control_data"]
+                    experiment_data["experimental_results"] = results["experimental_data"]
+                    experiment_data["analysis"] = analysis
+                    
+                    # Save to database
+                    from database import save_experiment
+                    experiment_id = save_experiment(experiment_data)
+                    
+                    st.success(f"Experiment saved successfully with ID: {experiment_id}")
+                except Exception as e:
+                    st.error(f"Error saving experiment: {str(e)}")
+        
+        # Option to start a new experiment
+        with col2:
+            if st.button("Start New Experiment", type="primary"):
+                # Reset experiment state
+                st.session_state.experiment_stage = "design"
+                st.session_state.experiment_tab = "Experiment Setup"
+                st.session_state.experiment_design = {
+                    "name": "",
+                    "hypothesis": "",
+                    "independent_variable": None,
+                    "dependent_variables": [],
+                    "control_group": {},
+                    "experimental_groups": [],
+                    "replications": 5,
+                    "randomization": True
+                }
+                st.session_state.experiment_results = None
+                st.rerun()
