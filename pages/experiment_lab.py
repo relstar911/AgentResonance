@@ -60,6 +60,8 @@ if "experiment_results" not in st.session_state:
         "summary": None,
         "statistical_tests": None
     }
+if "experiment_tab" not in st.session_state:
+    st.session_state.experiment_tab = "Experiment Setup"
 
 # Functions for experiments
 def run_experiment_group(params, replications, group_name, progress_callback=None):
@@ -230,8 +232,13 @@ st.sidebar.header("Experiment Navigation")
 if st.session_state.experiment_stage == "design":
     experiment_tab = st.sidebar.radio(
         "Design Process",
-        ["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"]
+        ["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"],
+        key="experiment_design_radio",
+        index=["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"].index(st.session_state.experiment_tab)
     )
+    
+    # Update session state for the current tab
+    st.session_state.experiment_tab = experiment_tab
     
     if experiment_tab == "Experiment Setup":
         st.header("1. Experiment Setup")
@@ -282,7 +289,7 @@ if st.session_state.experiment_stage == "design":
         st.markdown("---")
         st.write("Click 'Next' to continue to variable selection.")
         if st.button("Next", key="next_to_variables"):
-            st.sidebar.radio("Design Process", ["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"], index=1)
+            st.session_state.experiment_tab = "Variable Selection"
             st.rerun()
     
     elif experiment_tab == "Variable Selection":
@@ -315,13 +322,21 @@ if st.session_state.experiment_stage == "design":
         
         elif independent_var == "resources":
             var_control = st.number_input("Control Group Value", min_value=0, max_value=30, value=10)
-            var_levels = st.slider("Experimental Group Values", min_value=0, max_value=30, value=(5, 15, 25))
+            var_levels = st.multiselect(
+                "Experimental Group Values",
+                options=[0, 5, 10, 15, 20, 25, 30],
+                default=[5, 15, 25] if var_control not in [5, 15, 25] else [0, 20, 30]
+            )
             var_name = "Resources"
             var_unit = "count"
         
         elif independent_var == "dangers":
             var_control = st.number_input("Control Group Value", min_value=0, max_value=20, value=5)
-            var_levels = st.slider("Experimental Group Values", min_value=0, max_value=20, value=(0, 10, 20))
+            var_levels = st.multiselect(
+                "Experimental Group Values",
+                options=[0, 2, 5, 10, 15, 20],
+                default=[0, 10, 20] if var_control not in [0, 10, 20] else [2, 5, 15]
+            )
             var_name = "Dangers"
             var_unit = "count"
         
@@ -392,11 +407,11 @@ if st.session_state.experiment_stage == "design":
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Back", key="back_to_setup"):
-                st.sidebar.radio("Design Process", ["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"], index=0)
+                st.session_state.experiment_tab = "Experiment Setup"
                 st.rerun()
         with col2:
             if st.button("Next", key="next_to_groups"):
-                st.sidebar.radio("Design Process", ["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"], index=2)
+                st.session_state.experiment_tab = "Group Configuration"
                 st.rerun()
     
     elif experiment_tab == "Group Configuration":
