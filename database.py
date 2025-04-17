@@ -217,7 +217,24 @@ def save_experiment(experiment_data):
         
         # Helper function to convert numpy arrays and other non-serializable types
         def convert_numpy_types(obj):
-            if isinstance(obj, np.ndarray):
+            if isinstance(obj, pd.DataFrame):
+                # Convert DataFrame to dict of lists
+                result = {}
+                for column in obj.columns:
+                    if obj[column].dtype.name.startswith(('float', 'int')):
+                        result[column] = obj[column].astype(float).tolist()
+                    elif np.issubdtype(obj[column].dtype, np.ndarray):
+                        result[column] = obj[column].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x).tolist()
+                    else:
+                        result[column] = obj[column].tolist()
+                return result
+            elif isinstance(obj, pd.Series):
+                # Convert Series to list
+                if obj.dtype.name.startswith(('float', 'int')):
+                    return obj.astype(float).tolist()
+                else:
+                    return obj.tolist()
+            elif isinstance(obj, np.ndarray):
                 return obj.tolist()
             elif isinstance(obj, (np.float16, np.float32, np.float64)):
                 return float(obj)
@@ -236,59 +253,35 @@ def save_experiment(experiment_data):
             else:
                 return obj
         
-        # Convert independent_variable
-        if "independent_variable" in data_copy:
-            data_copy["independent_variable"] = convert_numpy_types(data_copy["independent_variable"])
+        # Convert the entire experiment data structure
+        serializable_data = convert_numpy_types(data_copy)
         
-        # Convert control_group
-        if "control_group" in data_copy:
-            data_copy["control_group"] = convert_numpy_types(data_copy["control_group"])
+        # Extract specific components
+        independent_variable = json.dumps(serializable_data.get("independent_variable", {}))
+        dependent_variables = json.dumps(serializable_data.get("dependent_variables", []))
+        control_group = json.dumps(serializable_data.get("control_group", {}))
+        experimental_groups = json.dumps(serializable_data.get("experimental_groups", []))
         
-        # Convert experimental_groups
-        if "experimental_groups" in data_copy:
-            data_copy["experimental_groups"] = convert_numpy_types(data_copy["experimental_groups"])
-        
-        # Convert numpy data types to Python native types
-        # For experimental_results, which is a list of DataFrames
-        if "experimental_results" in data_copy and data_copy["experimental_results"]:
+        # Convert experimental_results to JSON strings
+        if "experimental_results" in serializable_data and serializable_data["experimental_results"]:
             exp_results = []
-            for group_results in data_copy["experimental_results"]:
-                # Convert each DataFrame to JSON
-                if isinstance(group_results, pd.DataFrame):
-                    # Convert all DataFrame columns to Python native types
-                    for column in group_results.columns:
-                        if group_results[column].dtype.name.startswith(('float', 'int')):
-                            group_results[column] = group_results[column].astype(float)
-                        elif np.issubdtype(group_results[column].dtype, np.ndarray):
-                            group_results[column] = group_results[column].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
-                    exp_results.append(group_results.to_json(orient='records'))
-                else:
-                    # Already a list of dicts, but might contain numpy values
-                    exp_results.append(json.dumps(convert_numpy_types(group_results)))
+            for group_results in serializable_data["experimental_results"]:
+                # Each result is already converted to a serializable form
+                exp_results.append(json.dumps(group_results))
         else:
             exp_results = []
         
-        # For control_results, which is a DataFrame
-        if "control_results" in data_copy and data_copy["control_results"] is not None:
-            if isinstance(data_copy["control_results"], pd.DataFrame):
-                control_df = data_copy["control_results"].copy()
-                # Convert all DataFrame columns to Python native types
-                for column in control_df.columns:
-                    if control_df[column].dtype.name.startswith(('float', 'int')):
-                        control_df[column] = control_df[column].astype(float)
-                    elif np.issubdtype(control_df[column].dtype, np.ndarray):
-                        control_df[column] = control_df[column].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
-                control_results = control_df.to_json(orient='records')
-            else:
-                # Already a list of dicts, but might contain numpy values
-                control_results = json.dumps(convert_numpy_types(data_copy["control_results"]))
+        # Convert control_results to JSON string
+        if "control_results" in serializable_data and serializable_data["control_results"] is not None:
+            # Already converted to a serializable form
+            control_results = json.dumps(serializable_data["control_results"])
         else:
             control_results = None
         
-        # For analysis results
-        if "analysis" in data_copy and data_copy["analysis"]:
-            # Ensure all numpy values are converted to Python native types
-            analysis = json.dumps(convert_numpy_types(data_copy["analysis"]))
+        # Convert analysis results to JSON string
+        if "analysis" in serializable_data and serializable_data["analysis"]:
+            # Already converted to a serializable form
+            analysis = json.dumps(serializable_data["analysis"])
         else:
             analysis = None
         
