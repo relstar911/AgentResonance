@@ -448,19 +448,27 @@ with tab3:
                 if len(results_df) > 1:
                     x = results_df[param_to_analyze].values
                     y = results_df[metric_to_analyze].values
-                    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
                     
-                    st.write(f"Linear regression: {metric_to_analyze} = {slope:.3f} × {param_to_analyze.replace('param_', '')} + {intercept:.3f}")
-                    st.write(f"R²: {r_value**2:.3f}, p-value: {p_value:.3f}")
-                    
-                    # Interpretation
-                    if p_value < 0.05:
-                        if slope > 0:
-                            st.success(f"There is a significant positive effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze}.")
-                        else:
-                            st.success(f"There is a significant negative effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze}.")
+                    # Check if all x values are identical
+                    if np.std(x) == 0 or len(np.unique(x)) <= 1:
+                        st.warning(f"Cannot perform linear regression: all {param_to_analyze.replace('param_', '')} values are identical.")
                     else:
-                        st.info(f"No significant effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze} was found.")
+                        try:
+                            slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+                            
+                            st.write(f"Linear regression: {metric_to_analyze} = {slope:.3f} × {param_to_analyze.replace('param_', '')} + {intercept:.3f}")
+                            st.write(f"R²: {r_value**2:.3f}, p-value: {p_value:.3f}")
+                            
+                            # Interpretation
+                            if p_value < 0.05:
+                                if slope > 0:
+                                    st.success(f"There is a significant positive effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze}.")
+                                else:
+                                    st.success(f"There is a significant negative effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze}.")
+                            else:
+                                st.info(f"No significant effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze} was found.")
+                        except Exception as e:
+                            st.error(f"Error performing linear regression: {str(e)}")
                 
             else:  # Box Plot
                 fig = px.box(
@@ -516,19 +524,27 @@ with tab3:
             if len(results_df) > 1:
                 x = results_df[param_to_analyze].values
                 y = results_df[metric_to_analyze].values
-                slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
                 
-                st.write(f"Linear regression: {metric_to_analyze} = {slope:.3f} × {param_to_analyze.replace('param_', '')} + {intercept:.3f}")
-                st.write(f"R²: {r_value**2:.3f}, p-value: {p_value:.3f}")
-                
-                # Interpretation
-                if p_value < 0.05:
-                    if slope > 0:
-                        st.success(f"There is a significant positive effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze}.")
-                    else:
-                        st.success(f"There is a significant negative effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze}.")
+                # Check if all x values are identical
+                if np.std(x) == 0 or len(np.unique(x)) <= 1:
+                    st.warning(f"Cannot perform linear regression: all {param_to_analyze.replace('param_', '')} values are identical.")
                 else:
-                    st.info(f"No significant effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze} was found.")
+                    try:
+                        slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+                        
+                        st.write(f"Linear regression: {metric_to_analyze} = {slope:.3f} × {param_to_analyze.replace('param_', '')} + {intercept:.3f}")
+                        st.write(f"R²: {r_value**2:.3f}, p-value: {p_value:.3f}")
+                        
+                        # Interpretation
+                        if p_value < 0.05:
+                            if slope > 0:
+                                st.success(f"There is a significant positive effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze}.")
+                            else:
+                                st.success(f"There is a significant negative effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze}.")
+                        else:
+                            st.info(f"No significant effect of {param_to_analyze.replace('param_', '')} on {metric_to_analyze} was found.")
+                    except Exception as e:
+                        st.error(f"Error performing linear regression: {str(e)}")
         
         # Correlation heatmap
         st.subheader("Correlation Analysis")
