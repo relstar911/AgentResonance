@@ -215,9 +215,27 @@ def save_experiment(experiment_data):
         # Deep copy to avoid modifying original data
         data_copy = experiment_data.copy()
         
+        # Import ConsciousAgent here to avoid circular imports
+        from simulation import ConsciousAgent
+        
         # Helper function to convert numpy arrays and other non-serializable types
         def convert_numpy_types(obj):
-            if isinstance(obj, pd.DataFrame):
+            # Handle ConsciousAgent objects
+            if isinstance(obj, ConsciousAgent):
+                # Extract relevant attributes as a dictionary
+                agent_data = {
+                    "name": obj.name,
+                    "x": obj.x,
+                    "y": obj.y,
+                    "energy": obj.energy,
+                    "bond_strength": float(obj.bond_strength),
+                    "grid_size": obj.grid_size,
+                    "path_history": [(int(x), int(y)) for x, y in obj.path_history] if obj.path_history else []
+                }
+                return agent_data
+            
+            # Handle pandas DataFrames
+            elif isinstance(obj, pd.DataFrame):
                 # Convert DataFrame to dict of lists
                 result = {}
                 for column in obj.columns:
@@ -228,14 +246,20 @@ def save_experiment(experiment_data):
                     else:
                         result[column] = obj[column].tolist()
                 return result
+                
+            # Handle pandas Series
             elif isinstance(obj, pd.Series):
                 # Convert Series to list
                 if obj.dtype.name.startswith(('float', 'int')):
                     return obj.astype(float).tolist()
                 else:
                     return obj.tolist()
+                    
+            # Handle numpy arrays
             elif isinstance(obj, np.ndarray):
                 return obj.tolist()
+                
+            # Handle numpy scalar types
             elif isinstance(obj, (np.float16, np.float32, np.float64)):
                 return float(obj)
             elif isinstance(obj, (np.int8, np.int16, np.int32, np.int64)):
@@ -244,46 +268,66 @@ def save_experiment(experiment_data):
                 return float(obj)
             elif hasattr(np, 'int_') and isinstance(obj, np.int_):  # Für ältere NumPy-Versionen
                 return int(obj)
+                
+            # Handle collections recursively
             elif isinstance(obj, dict):
                 return {k: convert_numpy_types(v) for k, v in obj.items()}
             elif isinstance(obj, list):
                 return [convert_numpy_types(item) for item in obj]
             elif isinstance(obj, tuple):
                 return tuple(convert_numpy_types(item) for item in obj)
+            elif hasattr(obj, 'tolist') and callable(getattr(obj, 'tolist')):
+                # Handle any other object that has a tolist method
+                return obj.tolist()
+            elif hasattr(obj, '__dict__'):
+                # Handle any other custom object by extracting its attributes
+                try:
+                    return {k: convert_numpy_types(v) for k, v in obj.__dict__.items() 
+                           if not k.startswith('_')}
+                except:
+                    return str(obj)
             else:
+                # Return the object as is if it's a basic type
                 return obj
         
         # Convert the entire experiment data structure
         serializable_data = convert_numpy_types(data_copy)
         
-        # Extract specific components
-        independent_variable = json.dumps(serializable_data.get("independent_variable", {}))
-        dependent_variables = json.dumps(serializable_data.get("dependent_variables", []))
-        control_group = json.dumps(serializable_data.get("control_group", {}))
-        experimental_groups = json.dumps(serializable_data.get("experimental_groups", []))
+        # Extract specific components from serializable_data
+        # Handle potential non-dictionary objects gracefully
+        if isinstance(serializable_data, dict):
+            independent_variable = json.dumps(serializable_data.get("independent_variable", {}))
+            dependent_variables = json.dumps(serializable_data.get("dependent_variables", []))
+            control_group = json.dumps(serializable_data.get("control_group", {}))
+            experimental_groups = json.dumps(serializable_data.get("experimental_groups", []))
+        else:
+            # Fallback if serializable_data is not a dict
+            independent_variable = json.dumps(experiment_data.get("independent_variable", {}))
+            dependent_variables = json.dumps(experiment_data.get("dependent_variables", []))
+            control_group = json.dumps(experiment_data.get("control_group", {}))
+            experimental_groups = json.dumps(experiment_data.get("experimental_groups", []))
         
         # Convert experimental_results to JSON strings
-        if "experimental_results" in serializable_data and serializable_data["experimental_results"]:
-            exp_results = []
-            for group_results in serializable_data["experimental_results"]:
-                # Each result is already converted to a serializable form
-                exp_results.append(json.dumps(group_results))
-        else:
-            exp_results = []
+        exp_results = []
+        if isinstance(serializable_data, dict) and "experimental_results" in serializable_data:
+            if serializable_data["experimental_results"]:
+                for group_results in serializable_data["experimental_results"]:
+                    # Each result is already converted to a serializable form
+                    exp_results.append(json.dumps(group_results))
         
         # Convert control_results to JSON string
-        if "control_results" in serializable_data and serializable_data["control_results"] is not None:
-            # Already converted to a serializable form
-            control_results = json.dumps(serializable_data["control_results"])
-        else:
-            control_results = None
+        control_results = None
+        if isinstance(serializable_data, dict) and "control_results" in serializable_data:
+            if serializable_data["control_results"] is not None:
+                # Already converted to a serializable form
+                control_results = json.dumps(serializable_data["control_results"])
         
         # Convert analysis results to JSON string
-        if "analysis" in serializable_data and serializable_data["analysis"]:
-            # Already converted to a serializable form
-            analysis = json.dumps(serializable_data["analysis"])
-        else:
-            analysis = None
+        analysis = None
+        if isinstance(serializable_data, dict) and "analysis" in serializable_data:
+            if serializable_data["analysis"]:
+                # Already converted to a serializable form
+                analysis = json.dumps(serializable_data["analysis"])
         
         # Create experiment record
         experiment = ExperimentRun(
