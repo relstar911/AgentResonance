@@ -11,6 +11,7 @@ from io import BytesIO
 import simulation
 import visualization
 import analysis
+import database
 
 # Page configuration
 st.set_page_config(
@@ -102,6 +103,21 @@ if st.session_state.simulation_results:
     agent_a = results['agent_a']
     agent_b = results['agent_b']
     relationship_score = results['relationship_score']
+    
+    # Option to save the simulation to database
+    st.sidebar.subheader("Save Simulation")
+    sim_name = st.sidebar.text_input("Simulation Name (optional)")
+    sim_desc = st.sidebar.text_area("Description (optional)")
+    
+    if st.sidebar.button("Save to Database"):
+        try:
+            sim_id = database.save_simulation(results, name=sim_name, description=sim_desc)
+            st.sidebar.success(f"Simulation saved with ID: {sim_id}")
+        except Exception as e:
+            st.sidebar.error(f"Error saving simulation: {str(e)}")
+    
+    # Link to saved simulations page
+    st.sidebar.markdown("[View Saved Simulations](/saved_simulations)")
     
     # Create tabs for different visualizations
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["Grid Visualization", "Metrics", "Path Analysis", "Statistics", "Raw Data"])
