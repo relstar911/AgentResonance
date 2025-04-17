@@ -59,7 +59,8 @@ else:
         sim_data = database.get_simulation(selected_sim_id)
         
         if sim_data:
-            st.success(f"Loaded simulation: {sim_data['name'] if sim_data['name'] else f'Simulation {sim_data['id']}'}")
+            display_name = sim_data['name'] if sim_data['name'] else f"Simulation {sim_data['id']}"
+            st.success(f"Loaded simulation: {display_name}")
             
             # Create tabs for different visualizations
             tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Grid Visualization", "Metrics", "Path Analysis", "Raw Data"])

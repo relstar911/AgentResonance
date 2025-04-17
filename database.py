@@ -1,15 +1,21 @@
 import os
 import json
 import pandas as pd
-from sqlalchemy import create_engine, Column, Integer, String, Float, Text, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
-# Connect to the PostgreSQL database
-DATABASE_URL = os.environ.get('DATABASE_URL')
-engine = create_engine(DATABASE_URL)
+# Create database connection
 Base = declarative_base()
+
+# Database URL from environment variable
+database_url = os.environ.get('DATABASE_URL')
+if not database_url:
+    raise ValueError("DATABASE_URL environment variable not set")
+
+# Create engine and session
+engine = create_engine(database_url)
 Session = sessionmaker(bind=engine)
 
 class SimulationRun(Base):
@@ -40,63 +46,65 @@ class SimulationRun(Base):
 def init_db():
     """Initialize the database by creating tables"""
     Base.metadata.create_all(engine)
+    print("Database tables created.")
 
 def save_simulation(simulation_results, name=None, description=None):
     """Save simulation results to the database"""
-    # Extract data from simulation_results
-    grid = simulation_results['grid']
+    # Extract data from simulation results
+    grid = simulation_results['grid'].tolist()
     log_df = simulation_results['log']
     agent_a = simulation_results['agent_a']
     agent_b = simulation_results['agent_b']
     relationship_score = simulation_results['relationship_score']
     agent_positions = simulation_results['agent_positions']
     
-    # Calculate average metrics
+    # Calculate averages
     avg_resonance = log_df['resonance'].mean()
-    avg_bond_a = log_df['A_bond'].mean()
-    avg_bond_b = log_df['B_bond'].mean()
+    avg_bond_strength_a = log_df['A_bond'].mean()
+    avg_bond_strength_b = log_df['B_bond'].mean()
     
-    # Create new simulation record
-    sim = SimulationRun(
+    # Create simulation record
+    simulation = SimulationRun(
         name=name,
         description=description,
-        created_at=datetime.now(),
         grid_size=len(grid),
-        resources=len(grid[grid == 1]),
-        dangers=len(grid[grid == -1]),
-        goals=len(grid[grid == 2]),
+        resources=simulation_results.get('resources', 0),
+        dangers=simulation_results.get('dangers', 0),
+        goals=simulation_results.get('goals', 0),
         steps=len(log_df),
-        agent_a_start_x=agent_a.path_history[0][0] if agent_a.path_history else None,
-        agent_a_start_y=agent_a.path_history[0][1] if agent_a.path_history else None,
-        agent_b_start_x=agent_b.path_history[0][0] if agent_b.path_history else None,
-        agent_b_start_y=agent_b.path_history[0][1] if agent_b.path_history else None,
+        agent_a_start_x=agent_a.start_x,
+        agent_a_start_y=agent_a.start_y,
+        agent_b_start_x=agent_b.start_x,
+        agent_b_start_y=agent_b.start_y,
         relationship_score=relationship_score,
         avg_resonance=avg_resonance,
-        avg_bond_strength_a=avg_bond_a,
-        avg_bond_strength_b=avg_bond_b,
-        agent_positions=json.dumps([[(pos[0][0], pos[0][1]), (pos[1][0], pos[1][1])] for pos in agent_positions]),
-        grid_data=json.dumps(grid.tolist()),
+        avg_bond_strength_a=avg_bond_strength_a,
+        avg_bond_strength_b=avg_bond_strength_b,
+        agent_positions=json.dumps(agent_positions),
+        grid_data=json.dumps(grid),
         full_log=log_df.to_json(orient='records')
     )
     
     # Save to database
     session = Session()
     try:
-        session.add(sim)
+        session.add(simulation)
         session.commit()
-        return sim.id
+        sim_id = simulation.id
     except Exception as e:
         session.rollback()
         raise e
     finally:
         session.close()
+    
+    return sim_id
 
 def get_all_simulations():
     """Get metadata for all simulations"""
     session = Session()
     try:
-        sims = session.query(SimulationRun).order_by(SimulationRun.created_at.desc()).all()
-        return sims
+        simulations = session.query(SimulationRun).order_by(SimulationRun.created_at.desc()).all()
+        return simulations
     finally:
         session.close()
 
@@ -104,32 +112,35 @@ def get_simulation(simulation_id):
     """Get full data for a single simulation"""
     session = Session()
     try:
-        sim = session.query(SimulationRun).filter(SimulationRun.id == simulation_id).first()
-        if not sim:
+        simulation = session.query(SimulationRun).filter(SimulationRun.id == simulation_id).first()
+        if not simulation:
             return None
         
-        # Convert stored JSON back to appropriate data structures
-        result = {
-            'id': sim.id,
-            'name': sim.name,
-            'description': sim.description,
-            'created_at': sim.created_at,
-            'grid_size': sim.grid_size,
-            'resources': sim.resources,
-            'dangers': sim.dangers,
-            'goals': sim.goals,
-            'steps': sim.steps,
-            'agent_a_start': (sim.agent_a_start_x, sim.agent_a_start_y),
-            'agent_b_start': (sim.agent_b_start_x, sim.agent_b_start_y),
-            'relationship_score': sim.relationship_score,
-            'avg_resonance': sim.avg_resonance,
-            'avg_bond_strength_a': sim.avg_bond_strength_a,
-            'avg_bond_strength_b': sim.avg_bond_strength_b,
-            'agent_positions': json.loads(sim.agent_positions) if sim.agent_positions else [],
-            'grid': json.loads(sim.grid_data) if sim.grid_data else [],
-            'log': pd.read_json(sim.full_log) if sim.full_log else pd.DataFrame()
+        # Create a dictionary with all the simulation data
+        sim_data = {
+            'id': simulation.id,
+            'name': simulation.name,
+            'description': simulation.description,
+            'created_at': simulation.created_at,
+            'grid_size': simulation.grid_size,
+            'resources': simulation.resources,
+            'dangers': simulation.dangers,
+            'goals': simulation.goals,
+            'steps': simulation.steps,
+            'agent_a_start_x': simulation.agent_a_start_x,
+            'agent_a_start_y': simulation.agent_a_start_y,
+            'agent_b_start_x': simulation.agent_b_start_x,
+            'agent_b_start_y': simulation.agent_b_start_y,
+            'relationship_score': simulation.relationship_score,
+            'avg_resonance': simulation.avg_resonance,
+            'avg_bond_strength_a': simulation.avg_bond_strength_a,
+            'avg_bond_strength_b': simulation.avg_bond_strength_b,
+            'grid': json.loads(simulation.grid_data),
+            'agent_positions': json.loads(simulation.agent_positions),
+            'log': pd.read_json(simulation.full_log, orient='records')
         }
-        return result
+        
+        return sim_data
     finally:
         session.close()
 
@@ -137,14 +148,17 @@ def delete_simulation(simulation_id):
     """Delete a simulation from the database"""
     session = Session()
     try:
-        sim = session.query(SimulationRun).filter(SimulationRun.id == simulation_id).first()
-        if sim:
-            session.delete(sim)
+        simulation = session.query(SimulationRun).filter(SimulationRun.id == simulation_id).first()
+        if simulation:
+            session.delete(simulation)
             session.commit()
             return True
+        return False
+    except:
+        session.rollback()
         return False
     finally:
         session.close()
 
-# Initialize the database
+# Initialize database tables when importing this module
 init_db()
