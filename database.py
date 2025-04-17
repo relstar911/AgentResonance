@@ -61,27 +61,38 @@ def save_simulation(simulation_results, name=None, description=None):
     log_df = simulation_results['log']
     agent_a = simulation_results['agent_a']
     agent_b = simulation_results['agent_b']
-    relationship_score = simulation_results['relationship_score']
-    agent_positions = simulation_results['agent_positions']
     
-    # Calculate averages
-    avg_resonance = log_df['resonance'].mean()
-    avg_bond_strength_a = log_df['A_bond'].mean()
-    avg_bond_strength_b = log_df['B_bond'].mean()
+    # Convert NumPy types to Python native types
+    relationship_score = float(simulation_results['relationship_score'])
+    
+    # Convert agent positions to ensure they're serializable
+    agent_positions = []
+    for pos in simulation_results['agent_positions']:
+        agent_positions.append([list(map(int, pos[0])), list(map(int, pos[1]))])
+    
+    # Calculate averages and convert to native Python types
+    avg_resonance = float(log_df['resonance'].mean())
+    avg_bond_strength_a = float(log_df['A_bond'].mean())
+    avg_bond_strength_b = float(log_df['B_bond'].mean())
+    
+    # Convert all DataFrame columns to Python native types to prevent NumPy type errors
+    for column in log_df.columns:
+        if log_df[column].dtype.name.startswith(('float', 'int')):
+            log_df[column] = log_df[column].astype(float)
     
     # Create simulation record
     simulation = SimulationRun(
         name=name,
         description=description,
         grid_size=len(grid),
-        resources=simulation_results.get('resources', 0),
-        dangers=simulation_results.get('dangers', 0),
-        goals=simulation_results.get('goals', 0),
+        resources=int(simulation_results.get('resources', 0)),
+        dangers=int(simulation_results.get('dangers', 0)),
+        goals=int(simulation_results.get('goals', 0)),
         steps=len(log_df),
-        agent_a_start_x=agent_a.x,  # Corrected from start_x to x
-        agent_a_start_y=agent_a.y,  # Corrected from start_y to y
-        agent_b_start_x=agent_b.x,  # Corrected from start_x to x
-        agent_b_start_y=agent_b.y,  # Corrected from start_y to y
+        agent_a_start_x=int(agent_a.x),  # Convert to int
+        agent_a_start_y=int(agent_a.y),  # Convert to int
+        agent_b_start_x=int(agent_b.x),  # Convert to int
+        agent_b_start_y=int(agent_b.y),  # Convert to int
         relationship_score=relationship_score,
         avg_resonance=avg_resonance,
         avg_bond_strength_a=avg_bond_strength_a,
@@ -127,24 +138,25 @@ def get_simulation(simulation_id):
         
         # Create a dictionary with all the simulation data
         try:
+            # Make sure all values are Python native types
             sim_data = {
-                'id': simulation.id,
-                'name': simulation.name,
-                'description': simulation.description,
+                'id': int(simulation.id),
+                'name': str(simulation.name) if simulation.name else None,
+                'description': str(simulation.description) if simulation.description else None,
                 'created_at': simulation.created_at,
-                'grid_size': simulation.grid_size,
-                'resources': simulation.resources,
-                'dangers': simulation.dangers,
-                'goals': simulation.goals,
-                'steps': simulation.steps,
-                'agent_a_start_x': simulation.agent_a_start_x,
-                'agent_a_start_y': simulation.agent_a_start_y,
-                'agent_b_start_x': simulation.agent_b_start_x,
-                'agent_b_start_y': simulation.agent_b_start_y,
-                'relationship_score': simulation.relationship_score,
-                'avg_resonance': simulation.avg_resonance,
-                'avg_bond_strength_a': simulation.avg_bond_strength_a,
-                'avg_bond_strength_b': simulation.avg_bond_strength_b,
+                'grid_size': int(simulation.grid_size),
+                'resources': int(simulation.resources),
+                'dangers': int(simulation.dangers),
+                'goals': int(simulation.goals),
+                'steps': int(simulation.steps),
+                'agent_a_start_x': int(simulation.agent_a_start_x) if simulation.agent_a_start_x is not None else None,
+                'agent_a_start_y': int(simulation.agent_a_start_y) if simulation.agent_a_start_y is not None else None,
+                'agent_b_start_x': int(simulation.agent_b_start_x) if simulation.agent_b_start_x is not None else None,
+                'agent_b_start_y': int(simulation.agent_b_start_y) if simulation.agent_b_start_y is not None else None,
+                'relationship_score': float(simulation.relationship_score),
+                'avg_resonance': float(simulation.avg_resonance),
+                'avg_bond_strength_a': float(simulation.avg_bond_strength_a),
+                'avg_bond_strength_b': float(simulation.avg_bond_strength_b),
                 'grid': json.loads(simulation.grid_data),
                 'agent_positions': json.loads(simulation.agent_positions),
                 'log': pd.read_json(simulation.full_log, orient='records')
