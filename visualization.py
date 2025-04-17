@@ -26,6 +26,9 @@ def display_grid(grid, agent_a_pos, agent_b_pos, step=0):
     """Display the grid world with agents at their positions"""
     colors = generate_grid_colors(grid)
     
+    # Create a unique plot key based on the step to ensure refresh
+    plot_key = f"grid_plot_{step}_{agent_a_pos}_{agent_b_pos}"
+    
     fig, ax = plt.subplots(figsize=(7, 7))
     
     # Draw grid cells with appropriate colors
@@ -38,7 +41,7 @@ def display_grid(grid, agent_a_pos, agent_b_pos, step=0):
         ax.axhline(i, color='black', lw=1)
         ax.axvline(i, color='black', lw=1)
     
-    # Place agents
+    # Place agents with more distinctive markers
     ax.plot(agent_a_pos[1] + 0.5, agent_a_pos[0] + 0.5, 'bo', markersize=15, label='Agent A')
     ax.plot(agent_b_pos[1] + 0.5, agent_b_pos[0] + 0.5, 'mo', markersize=15, label='Agent B')
     
@@ -48,16 +51,17 @@ def display_grid(grid, agent_a_pos, agent_b_pos, step=0):
     ax.set_ylim(0, grid.shape[0])
     ax.invert_yaxis()  # Invert y-axis to match grid coordinates
     
-    # Add legend and title
-    ax.legend(loc='upper right', bbox_to_anchor=(1.1, 1.1))
-    ax.set_title(f'Grid World - Step {step}')
+    # Add clear title with step information
+    ax.set_title(f'Grid World - Step {step}', fontsize=14)
     
     # Add explanation for colors
     legend_elements = [
         plt.Rectangle((0, 0), 1, 1, color='lightgray', alpha=0.5, label='Empty'),
         plt.Rectangle((0, 0), 1, 1, color='green', alpha=0.5, label='Resource'),
         plt.Rectangle((0, 0), 1, 1, color='red', alpha=0.5, label='Danger'),
-        plt.Rectangle((0, 0), 1, 1, color='gold', alpha=0.5, label='Goal')
+        plt.Rectangle((0, 0), 1, 1, color='gold', alpha=0.5, label='Goal'),
+        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='blue', markersize=10, label='Agent A'),
+        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='magenta', markersize=10, label='Agent B')
     ]
     ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.3, 1))
     
@@ -65,6 +69,10 @@ def display_grid(grid, agent_a_pos, agent_b_pos, step=0):
     ax.set_xticks([])
     ax.set_yticks([])
     
+    # Clear the figure
+    plt.close(fig)
+    
+    # Display the updated figure
     st.pyplot(fig)
 
 def create_agent_path_heatmap(agent, grid_size):

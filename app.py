@@ -165,12 +165,12 @@ if st.session_state.simulation_results:
             
             st.metric("Resonance", f"{step_data['resonance']:.3f}")
         
-        # Animation logic
+        # Animation logic - place this at the end of the tab1 block to ensure it triggers a full reload
         if st.session_state.running_animation:
             if st.session_state.current_step < steps - 1:
                 st.session_state.current_step += 1
                 time.sleep(animation_speed / 1000)  # Convert ms to seconds
-                st.rerun()
+                st.rerun()  # Force a full rerun to update the visualization
             else:
                 st.session_state.running_animation = False
     
