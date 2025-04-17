@@ -212,48 +212,83 @@ def save_experiment(experiment_data):
     """Save experiment design and results to the database"""
     session = Session()
     try:
+        # Deep copy to avoid modifying original data
+        data_copy = experiment_data.copy()
+        
+        # Helper function to convert numpy arrays and other non-serializable types
+        def convert_numpy_types(obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, (np.float16, np.float32, np.float64)):
+                return float(obj)
+            elif isinstance(obj, (np.int8, np.int16, np.int32, np.int64)):
+                return int(obj)
+            elif hasattr(np, 'float_') and isinstance(obj, np.float_):  # Für ältere NumPy-Versionen
+                return float(obj)
+            elif hasattr(np, 'int_') and isinstance(obj, np.int_):  # Für ältere NumPy-Versionen
+                return int(obj)
+            elif isinstance(obj, dict):
+                return {k: convert_numpy_types(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_numpy_types(item) for item in obj]
+            elif isinstance(obj, tuple):
+                return tuple(convert_numpy_types(item) for item in obj)
+            else:
+                return obj
+        
+        # Convert independent_variable
+        if "independent_variable" in data_copy:
+            data_copy["independent_variable"] = convert_numpy_types(data_copy["independent_variable"])
+        
+        # Convert control_group
+        if "control_group" in data_copy:
+            data_copy["control_group"] = convert_numpy_types(data_copy["control_group"])
+        
+        # Convert experimental_groups
+        if "experimental_groups" in data_copy:
+            data_copy["experimental_groups"] = convert_numpy_types(data_copy["experimental_groups"])
+        
         # Convert numpy data types to Python native types
         # For experimental_results, which is a list of DataFrames
-        if "experimental_results" in experiment_data and experiment_data["experimental_results"]:
+        if "experimental_results" in data_copy and data_copy["experimental_results"]:
             exp_results = []
-            for group_results in experiment_data["experimental_results"]:
+            for group_results in data_copy["experimental_results"]:
                 # Convert each DataFrame to JSON
                 if isinstance(group_results, pd.DataFrame):
                     # Convert all DataFrame columns to Python native types
                     for column in group_results.columns:
                         if group_results[column].dtype.name.startswith(('float', 'int')):
                             group_results[column] = group_results[column].astype(float)
+                        elif np.issubdtype(group_results[column].dtype, np.ndarray):
+                            group_results[column] = group_results[column].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
                     exp_results.append(group_results.to_json(orient='records'))
                 else:
-                    # Already a list of dicts
-                    exp_results.append(json.dumps(group_results))
+                    # Already a list of dicts, but might contain numpy values
+                    exp_results.append(json.dumps(convert_numpy_types(group_results)))
         else:
             exp_results = []
         
         # For control_results, which is a DataFrame
-        if "control_results" in experiment_data and experiment_data["control_results"] is not None:
-            if isinstance(experiment_data["control_results"], pd.DataFrame):
-                control_df = experiment_data["control_results"]
+        if "control_results" in data_copy and data_copy["control_results"] is not None:
+            if isinstance(data_copy["control_results"], pd.DataFrame):
+                control_df = data_copy["control_results"].copy()
                 # Convert all DataFrame columns to Python native types
                 for column in control_df.columns:
                     if control_df[column].dtype.name.startswith(('float', 'int')):
                         control_df[column] = control_df[column].astype(float)
+                    elif np.issubdtype(control_df[column].dtype, np.ndarray):
+                        control_df[column] = control_df[column].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
                 control_results = control_df.to_json(orient='records')
             else:
-                # Already a list of dicts
-                control_results = json.dumps(experiment_data["control_results"])
+                # Already a list of dicts, but might contain numpy values
+                control_results = json.dumps(convert_numpy_types(data_copy["control_results"]))
         else:
             control_results = None
         
         # For analysis results
-        if "analysis" in experiment_data and experiment_data["analysis"]:
+        if "analysis" in data_copy and data_copy["analysis"]:
             # Ensure all numpy values are converted to Python native types
-            analysis = json.dumps(
-                experiment_data["analysis"],
-                default=lambda x: float(x) if isinstance(x, (np.float_, np.float16, np.float32, np.float64)) 
-                                            else int(x) if isinstance(x, (np.int_, np.int8, np.int16, np.int32, np.int64))
-                                            else x
-            )
+            analysis = json.dumps(convert_numpy_types(data_copy["analysis"]))
         else:
             analysis = None
         
