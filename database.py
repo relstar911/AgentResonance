@@ -14,8 +14,14 @@ database_url = os.environ.get('DATABASE_URL')
 if not database_url:
     raise ValueError("DATABASE_URL environment variable not set")
 
-# Create engine and session
-engine = create_engine(database_url)
+# Create engine and session with connection pooling and better error handling
+engine = create_engine(
+    database_url,
+    pool_pre_ping=True,  # Check connection before using
+    pool_recycle=3600,   # Recycle connections after 1 hour
+    pool_timeout=30,     # Wait 30 seconds for a connection
+    connect_args={"connect_timeout": 10}  # 10 seconds connection timeout
+)
 Session = sessionmaker(bind=engine)
 
 class SimulationRun(Base):
@@ -105,6 +111,9 @@ def get_all_simulations():
     try:
         simulations = session.query(SimulationRun).order_by(SimulationRun.created_at.desc()).all()
         return simulations
+    except Exception as e:
+        print(f"Database error in get_all_simulations: {str(e)}")
+        return []  # Return empty list on error
     finally:
         session.close()
 
@@ -117,30 +126,36 @@ def get_simulation(simulation_id):
             return None
         
         # Create a dictionary with all the simulation data
-        sim_data = {
-            'id': simulation.id,
-            'name': simulation.name,
-            'description': simulation.description,
-            'created_at': simulation.created_at,
-            'grid_size': simulation.grid_size,
-            'resources': simulation.resources,
-            'dangers': simulation.dangers,
-            'goals': simulation.goals,
-            'steps': simulation.steps,
-            'agent_a_start_x': simulation.agent_a_start_x,
-            'agent_a_start_y': simulation.agent_a_start_y,
-            'agent_b_start_x': simulation.agent_b_start_x,
-            'agent_b_start_y': simulation.agent_b_start_y,
-            'relationship_score': simulation.relationship_score,
-            'avg_resonance': simulation.avg_resonance,
-            'avg_bond_strength_a': simulation.avg_bond_strength_a,
-            'avg_bond_strength_b': simulation.avg_bond_strength_b,
-            'grid': json.loads(simulation.grid_data),
-            'agent_positions': json.loads(simulation.agent_positions),
-            'log': pd.read_json(simulation.full_log, orient='records')
-        }
-        
-        return sim_data
+        try:
+            sim_data = {
+                'id': simulation.id,
+                'name': simulation.name,
+                'description': simulation.description,
+                'created_at': simulation.created_at,
+                'grid_size': simulation.grid_size,
+                'resources': simulation.resources,
+                'dangers': simulation.dangers,
+                'goals': simulation.goals,
+                'steps': simulation.steps,
+                'agent_a_start_x': simulation.agent_a_start_x,
+                'agent_a_start_y': simulation.agent_a_start_y,
+                'agent_b_start_x': simulation.agent_b_start_x,
+                'agent_b_start_y': simulation.agent_b_start_y,
+                'relationship_score': simulation.relationship_score,
+                'avg_resonance': simulation.avg_resonance,
+                'avg_bond_strength_a': simulation.avg_bond_strength_a,
+                'avg_bond_strength_b': simulation.avg_bond_strength_b,
+                'grid': json.loads(simulation.grid_data),
+                'agent_positions': json.loads(simulation.agent_positions),
+                'log': pd.read_json(simulation.full_log, orient='records')
+            }
+            return sim_data
+        except Exception as e:
+            print(f"Error parsing simulation data: {str(e)}")
+            return None
+    except Exception as e:
+        print(f"Database error in get_simulation: {str(e)}")
+        return None
     finally:
         session.close()
 

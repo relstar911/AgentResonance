@@ -116,9 +116,6 @@ if st.session_state.simulation_results:
         except Exception as e:
             st.sidebar.error(f"Error saving simulation: {str(e)}")
     
-    # Link to saved simulations page
-    st.sidebar.markdown("[View Saved Simulations](/saved_simulations)")
-    
     # Create tabs for different visualizations
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["Grid Visualization", "Metrics", "Path Analysis", "Statistics", "Raw Data"])
     
