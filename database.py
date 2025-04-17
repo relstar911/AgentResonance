@@ -1,6 +1,7 @@
 import os
 import json
 import pandas as pd
+import numpy as np
 from sqlalchemy import Column, Integer, String, Float, Text, DateTime, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -48,6 +49,25 @@ class SimulationRun(Base):
     agent_positions = Column(Text)  # Stored as JSON
     grid_data = Column(Text)  # Stored as JSON
     full_log = Column(Text)  # Stored as JSON
+
+
+class ExperimentRun(Base):
+    """Table to store metadata and results about each experiment"""
+    __tablename__ = 'experiment_runs'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    hypothesis = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    independent_variable = Column(Text)  # Stored as JSON
+    dependent_variables = Column(Text)  # Stored as JSON list
+    control_group = Column(Text)  # Stored as JSON
+    experimental_groups = Column(Text)  # Stored as JSON
+    replications = Column(Integer)
+    randomization = Column(Integer, default=1)  # Using Integer instead of Boolean for SQLite compatibility
+    control_results = Column(Text)  # Stored as JSON
+    experimental_results = Column(Text)  # Stored as JSON
+    analysis = Column(Text)  # Stored as JSON
 
 def init_db():
     """Initialize the database by creating tables"""
@@ -186,6 +206,179 @@ def delete_simulation(simulation_id):
         return False
     finally:
         session.close()
+
+
+def save_experiment(experiment_data):
+    """Save experiment design and results to the database"""
+    session = Session()
+    try:
+        # Convert numpy data types to Python native types
+        # For experimental_results, which is a list of DataFrames
+        if "experimental_results" in experiment_data and experiment_data["experimental_results"]:
+            exp_results = []
+            for group_results in experiment_data["experimental_results"]:
+                # Convert each DataFrame to JSON
+                if isinstance(group_results, pd.DataFrame):
+                    # Convert all DataFrame columns to Python native types
+                    for column in group_results.columns:
+                        if group_results[column].dtype.name.startswith(('float', 'int')):
+                            group_results[column] = group_results[column].astype(float)
+                    exp_results.append(group_results.to_json(orient='records'))
+                else:
+                    # Already a list of dicts
+                    exp_results.append(json.dumps(group_results))
+        else:
+            exp_results = []
+        
+        # For control_results, which is a DataFrame
+        if "control_results" in experiment_data and experiment_data["control_results"] is not None:
+            if isinstance(experiment_data["control_results"], pd.DataFrame):
+                control_df = experiment_data["control_results"]
+                # Convert all DataFrame columns to Python native types
+                for column in control_df.columns:
+                    if control_df[column].dtype.name.startswith(('float', 'int')):
+                        control_df[column] = control_df[column].astype(float)
+                control_results = control_df.to_json(orient='records')
+            else:
+                # Already a list of dicts
+                control_results = json.dumps(experiment_data["control_results"])
+        else:
+            control_results = None
+        
+        # For analysis results
+        if "analysis" in experiment_data and experiment_data["analysis"]:
+            # Ensure all numpy values are converted to Python native types
+            analysis = json.dumps(
+                experiment_data["analysis"],
+                default=lambda x: float(x) if isinstance(x, (np.float_, np.float16, np.float32, np.float64)) 
+                                            else int(x) if isinstance(x, (np.int_, np.int8, np.int16, np.int32, np.int64))
+                                            else x
+            )
+        else:
+            analysis = None
+        
+        # Create experiment record
+        experiment = ExperimentRun(
+            name=experiment_data.get("name", "Unnamed Experiment"),
+            hypothesis=experiment_data.get("hypothesis"),
+            independent_variable=json.dumps(experiment_data.get("independent_variable", {})),
+            dependent_variables=json.dumps(experiment_data.get("dependent_variables", [])),
+            control_group=json.dumps(experiment_data.get("control_group", {})),
+            experimental_groups=json.dumps(experiment_data.get("experimental_groups", [])),
+            replications=experiment_data.get("replications", 1),
+            randomization=1 if experiment_data.get("randomization", True) else 0,
+            control_results=control_results,
+            experimental_results=json.dumps(exp_results),
+            analysis=analysis
+        )
+        
+        session.add(experiment)
+        session.commit()
+        exp_id = experiment.id
+        return exp_id
+    
+    except Exception as e:
+        session.rollback()
+        print(f"Error saving experiment: {str(e)}")
+        raise e
+    finally:
+        session.close()
+
+
+def get_all_experiments():
+    """Get metadata for all experiments"""
+    session = Session()
+    try:
+        experiments = session.query(ExperimentRun).order_by(ExperimentRun.created_at.desc()).all()
+        return experiments
+    except Exception as e:
+        print(f"Database error in get_all_experiments: {str(e)}")
+        return []  # Return empty list on error
+    finally:
+        session.close()
+
+
+def get_experiment(experiment_id):
+    """Get full data for a single experiment"""
+    session = Session()
+    try:
+        experiment = session.query(ExperimentRun).filter(ExperimentRun.id == experiment_id).first()
+        if not experiment:
+            return None
+        
+        # Create a dictionary with all the experiment data
+        try:
+            # Convert JSON strings back to Python objects
+            exp_data = {
+                'id': int(experiment.id),
+                'name': str(experiment.name),
+                'hypothesis': str(experiment.hypothesis) if experiment.hypothesis else None,
+                'created_at': experiment.created_at,
+                'replications': int(experiment.replications),
+                'randomization': bool(experiment.randomization),
+                'independent_variable': json.loads(experiment.independent_variable) if experiment.independent_variable else {},
+                'dependent_variables': json.loads(experiment.dependent_variables) if experiment.dependent_variables else [],
+                'control_group': json.loads(experiment.control_group) if experiment.control_group else {},
+                'experimental_groups': json.loads(experiment.experimental_groups) if experiment.experimental_groups else []
+            }
+            
+            # Handle results data (convert JSON to DataFrames where needed)
+            if experiment.control_results:
+                try:
+                    exp_data['control_results'] = pd.read_json(experiment.control_results, orient='records')
+                except:
+                    exp_data['control_results'] = json.loads(experiment.control_results)
+            else:
+                exp_data['control_results'] = None
+            
+            if experiment.experimental_results:
+                exp_results_json = json.loads(experiment.experimental_results)
+                exp_results = []
+                for group_result in exp_results_json:
+                    try:
+                        exp_results.append(pd.read_json(group_result, orient='records'))
+                    except:
+                        exp_results.append(json.loads(group_result))
+                exp_data['experimental_results'] = exp_results
+            else:
+                exp_data['experimental_results'] = []
+            
+            if experiment.analysis:
+                exp_data['analysis'] = json.loads(experiment.analysis)
+            else:
+                exp_data['analysis'] = {}
+            
+            return exp_data
+        
+        except Exception as e:
+            print(f"Error parsing experiment data: {str(e)}")
+            return None
+    
+    except Exception as e:
+        print(f"Database error in get_experiment: {str(e)}")
+        return None
+    
+    finally:
+        session.close()
+
+
+def delete_experiment(experiment_id):
+    """Delete an experiment from the database"""
+    session = Session()
+    try:
+        experiment = session.query(ExperimentRun).filter(ExperimentRun.id == experiment_id).first()
+        if experiment:
+            session.delete(experiment)
+            session.commit()
+            return True
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Error deleting experiment: {str(e)}")
+        return False
+    finally:
+        session.close()
+
 
 # Initialize database tables when importing this module
 init_db()
