@@ -10,6 +10,11 @@ import plotly.graph_objects as go
 from scipy import stats
 import itertools
 import uuid
+import sys
+import os
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import our modules
 import simulation

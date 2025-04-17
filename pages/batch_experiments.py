@@ -8,12 +8,17 @@ import json
 import plotly.express as px
 import plotly.graph_objects as go
 from scipy import stats
+import sys
+import os
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import our modules
-import batch_simulation
 import visualization
 import analysis
 import database
+import batch_simulation
 
 # Page configuration
 st.set_page_config(

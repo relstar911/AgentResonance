@@ -4,6 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 from datetime import datetime
+import sys
+import os
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import modules
 import visualization
