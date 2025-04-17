@@ -4,6 +4,7 @@ import numpy as np
 import time
 import base64
 import matplotlib.pyplot as plt
+import random
 from io import BytesIO
 
 # Import modules
