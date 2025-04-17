@@ -421,7 +421,7 @@ if st.session_state.experiment_stage == "design":
         if not st.session_state.experiment_design["independent_variable"]:
             st.error("Please define your independent variable first.")
             if st.button("Go to Variable Selection"):
-                st.sidebar.radio("Design Process", ["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"], index=1)
+                st.session_state.experiment_tab = "Variable Selection"
                 st.rerun()
         else:
             # Display independent variable information
@@ -588,11 +588,11 @@ if st.session_state.experiment_stage == "design":
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Back", key="back_to_variables"):
-                    st.sidebar.radio("Design Process", ["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"], index=1)
+                    st.session_state.experiment_tab = "Variable Selection"
                     st.rerun()
             with col2:
                 if st.button("Next", key="next_to_confirmation"):
-                    st.sidebar.radio("Design Process", ["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"], index=3)
+                    st.session_state.experiment_tab = "Confirmation"
                     st.rerun()
     
     elif experiment_tab == "Confirmation":
@@ -625,7 +625,7 @@ if st.session_state.experiment_stage == "design":
             st.write(f"Missing sections: {', '.join(missing_sections)}")
             
             if st.button("Go to Experiment Setup"):
-                st.sidebar.radio("Design Process", ["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"], index=0)
+                st.session_state.experiment_tab = "Experiment Setup"
                 st.rerun()
         else:
             # Display experiment summary
@@ -711,7 +711,7 @@ if st.session_state.experiment_stage == "design":
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Edit Experiment", key="back_to_groups"):
-                    st.sidebar.radio("Design Process", ["Experiment Setup", "Variable Selection", "Group Configuration", "Confirmation"], index=2)
+                    st.session_state.experiment_tab = "Group Configuration"
                     st.rerun()
             with col2:
                 if st.button("Run Experiment", type="primary", key="run_experiment"):
