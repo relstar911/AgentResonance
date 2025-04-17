@@ -735,18 +735,26 @@ elif st.session_state.experiment_stage == "running":
     # Run control group simulations
     progress_text.text(f"Running control group simulations...")
     
-    def update_progress(message):
-        nonlocal sims_completed
-        sims_completed += 1
-        progress_text.text(message)
-        progress_bar.progress(sims_completed / total_sims)
+    # Umschließen Sie Fortschrittsfunktionen mit einer Klasse, um Nonlocal-Probleme zu vermeiden
+    class ProgressTracker:
+        def __init__(self, total):
+            self.completed = 0
+            self.total = total
+            
+        def update(self, message):
+            self.completed += 1
+            progress_text.text(message)
+            progress_bar.progress(self.completed / self.total)
+    
+    # Instanz des Trackers erstellen
+    progress_tracker = ProgressTracker(total_sims)
     
     # Run the control group
     control_results = run_experiment_group(
         control_params, 
         replications, 
         "Control Group",
-        progress_callback=update_progress
+        progress_callback=progress_tracker.update
     )
     
     # Run experimental groups
@@ -756,7 +764,7 @@ elif st.session_state.experiment_stage == "running":
             params, 
             replications, 
             f"Experimental Group {i+1}",
-            progress_callback=update_progress
+            progress_callback=progress_tracker.update
         )
         experimental_results.append(group_results)
     
