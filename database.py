@@ -6,6 +6,10 @@ from sqlalchemy import Column, Integer, String, Float, Text, DateTime, create_en
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Lade Umgebungsvariablen aus .env Datei
+load_dotenv()
 
 # Create database connection
 Base = declarative_base()
