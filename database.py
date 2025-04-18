@@ -12,16 +12,30 @@ Base = declarative_base()
 
 # Database URL from environment variable
 database_url = os.environ.get('DATABASE_URL')
+
+# Fallback for local development
 if not database_url:
-    raise ValueError("DATABASE_URL environment variable not set")
+    # Check if we're in a local development environment
+    local_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'local_data.db')
+    print(f"DATABASE_URL not found. Creating SQLite database for local development at: {local_db_path}")
+    database_url = f"sqlite:///{local_db_path}"
 
 # Create engine and session with connection pooling and better error handling
+# Define connection arguments based on database type
+connect_args = {}
+if database_url.startswith('sqlite'):
+    # SQLite specific arguments
+    connect_args = {"check_same_thread": False}  # Allow access from multiple threads
+else:
+    # PostgreSQL specific arguments
+    connect_args = {"connect_timeout": 10}  # 10 seconds connection timeout
+
 engine = create_engine(
     database_url,
     pool_pre_ping=True,  # Check connection before using
     pool_recycle=3600,   # Recycle connections after 1 hour
     pool_timeout=30,     # Wait 30 seconds for a connection
-    connect_args={"connect_timeout": 10}  # 10 seconds connection timeout
+    connect_args=connect_args
 )
 Session = sessionmaker(bind=engine)
 

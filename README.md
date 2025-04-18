@@ -30,6 +30,8 @@ Diese Anwendung bietet ein fortschrittliches Framework zur Modellierung und Erfo
 
 ## Installation
 
+### Standard-Installation
+
 ```bash
 # Repository klonen
 git clone https://github.com/relstar911/AgentResonance.git
@@ -38,8 +40,47 @@ cd AgentResonance
 # Abhängigkeiten installieren
 pip install streamlit matplotlib numpy pandas plotly scikit-learn scipy seaborn sqlalchemy psycopg2-binary
 
+# Optional: Für die .env-Datei-Unterstützung
+# pip install python-dotenv
+
 # Streamlit-App starten
 streamlit run app.py
+```
+
+### Lokale Entwicklung mit SQLite
+
+Für die lokale Entwicklung verwendet das System automatisch eine SQLite-Datenbank, wenn keine PostgreSQL-Verbindung konfiguriert ist. Es sind keine weiteren Schritte erforderlich - die Anwendung erstellt automatisch eine Datei 'local_data.db' im Projektverzeichnis.
+
+### Lokale Entwicklung mit PostgreSQL
+
+Wenn Sie stattdessen eine lokale PostgreSQL-Datenbank verwenden möchten:
+
+1. PostgreSQL installieren und einrichten
+2. Eine neue Datenbank erstellen
+3. Die Verbindung über eine Umgebungsvariable konfigurieren:
+
+```bash
+# Umgebungsvariable setzen (Linux/macOS)
+export DATABASE_URL="postgresql://benutzername:passwort@localhost:5432/datenbankname"
+
+# Für Windows (PowerShell)
+$env:DATABASE_URL="postgresql://benutzername:passwort@localhost:5432/datenbankname"
+
+# Für Windows (CMD)
+set DATABASE_URL=postgresql://benutzername:passwort@localhost:5432/datenbankname
+```
+
+Alternativ können Sie eine `.env`-Datei im Projektverzeichnis erstellen:
+
+```
+DATABASE_URL=postgresql://benutzername:passwort@localhost:5432/datenbankname
+```
+
+Und dann mit python-dotenv laden:
+
+```python
+from dotenv import load_dotenv
+load_dotenv()  # Diese Zeile am Anfang von app.py oder database.py hinzufügen
 ```
 
 ## Abhängigkeiten
@@ -54,6 +95,9 @@ streamlit run app.py
 - seaborn>=0.12.0
 - sqlalchemy>=2.0.0
 - psycopg2-binary>=2.9.0
+
+Für die .env-Datei-Unterstützung (optional):
+- python-dotenv>=1.0.0
 
 ## Benutzung
 
